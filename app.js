@@ -190,8 +190,8 @@
 
   function closeModal(){ modal.classList.add('hidden'); }
 
-  modalOverlay.addEventListener('click', closeModal);
-  modalClose.addEventListener('click', closeModal);
+  if(modalOverlay) modalOverlay.addEventListener('click', closeModal);
+  if(modalClose) modalClose.addEventListener('click', closeModal);
 
   function toggleSave(book){
     if(saved[book.key]){
@@ -212,24 +212,28 @@
   }
 
   // View toggles
-  bookshelfBtn.addEventListener('click', ()=>{
-    inBookshelf = !inBookshelf;
-    if(inBookshelf){
-      viewTitle.textContent = 'Your Bookshelf';
-      renderResults(Object.values(saved));
-    } else {
-      viewTitle.textContent = 'Search';
-      renderResults(applyFilters(currentResults));
-    }
-  });
+  if(bookshelfBtn){
+    bookshelfBtn.addEventListener('click', ()=>{
+      inBookshelf = !inBookshelf;
+      if(inBookshelf){
+        viewTitle.textContent = 'Your Bookshelf';
+        renderResults(Object.values(saved));
+      } else {
+        viewTitle.textContent = 'Search';
+        renderResults(applyFilters(currentResults));
+      }
+    });
+  }
 
-  openFilters.addEventListener('click', ()=>filtersPanel.classList.add('open'));
-  toggleFilters.addEventListener('click', ()=>filtersPanel.classList.remove('open'));
+  if(openFilters) openFilters.addEventListener('click', ()=>filtersPanel.classList.add('open'));
+  if(toggleFilters) toggleFilters.addEventListener('click', ()=>filtersPanel.classList.remove('open'));
 
   // Filters change
-  [sortByEl, eraEl, hasCoverEl, minEditionsEl].forEach(el=>el.addEventListener('change', ()=>{
-    renderResults(applyFilters(inBookshelf ? Object.values(saved) : currentResults));
-  }));
+  [sortByEl, eraEl, hasCoverEl, minEditionsEl].forEach(el=>{
+    if(el) el.addEventListener('change', ()=>{
+      renderResults(applyFilters(inBookshelf ? Object.values(saved) : currentResults));
+    });
+  });
 
   // Debounced search on input
   const debounced = debounce((e)=>{
@@ -239,26 +243,28 @@
     search(q);
   }, 800);
 
-  searchInput.addEventListener('input', (e)=>{
-    // expand when typing
-    if(searchInput.classList.contains('collapsed')){
-      searchInput.classList.remove('collapsed');
-      searchInput.style.width = '320px';
-    }
-    debounced(e);
-  });
+  if(searchInput){
+    searchInput.addEventListener('input', (e)=>{
+      // expand when typing
+      if(searchInput.classList.contains('collapsed')){
+        searchInput.classList.remove('collapsed');
+        searchInput.style.width = '320px';
+      }
+      debounced(e);
+    });
 
-  // Submit on enter
-  searchInput.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
-      e.preventDefault();
-      search(searchInput.value);
-    }
-  });
+    // Submit on enter
+    searchInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        search(searchInput.value);
+      }
+    });
+  }
 
   // initial focus behavior: clicking outside collapses
   document.addEventListener('click', (e)=>{
-    if(!searchInput.contains(e.target) && searchInput.value.trim() === ''){
+    if(searchInput && !searchInput.contains(e.target) && searchInput.value.trim() === ''){
       searchInput.classList.add('collapsed');
       searchInput.style.width='';
     }
