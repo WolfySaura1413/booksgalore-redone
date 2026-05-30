@@ -79,6 +79,8 @@ A persistent **"Your Bookshelf"** button is always visible in the top left. It i
 
 - Located in the **top right corner**.
 
+- Accepts a **book title** typed by the user as the search query. Author name search is secondary; the primary use case is searching by title.
+
 - Styled to resemble the **spine of a book** when collapsed:
 
 Tall and narrow

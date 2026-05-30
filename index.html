@@ -4,48 +4,47 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Booksgalore — Treat your shelf!</title>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <button id="bookshelf-btn" aria-label="Your Bookshelf">Your Bookshelf</button>
-    <div class="search-wrap" id="search-wrap">
-      <div class="search-spine" id="search-spine" tabindex="0">
-        <span class="spine-text">Search</span>
-      </div>
-      <input id="search-input" class="search-input" placeholder="Search books or authors" aria-label="Search books or authors">
+    <button id="bookshelfBtn" class="bookshelf-btn" aria-label="Your Bookshelf">Your Bookshelf</button>
+
+    <div class="search-spine" id="searchSpine">
+      <input id="searchInput" class="search-input collapsed" placeholder="Search titles..." aria-label="Search books" />
     </div>
   </header>
 
-  <div class="container">
+  <div class="app-shell">
     <aside class="filters" id="filters">
-      <button id="filters-close" class="filters-close">×</button>
-      <h3>Filter</h3>
+      <button id="toggleFilters" class="close-filters">✕</button>
+      <h3>Filters</h3>
+
       <label>Sort by
-        <select id="sort-select">
+        <select id="sortBy">
           <option value="relevance">Relevance</option>
           <option value="year-desc">Year (Newest)</option>
           <option value="year-asc">Year (Oldest)</option>
         </select>
       </label>
 
-      <fieldset>
-        <legend>Publication era</legend>
-        <label><input type="radio" name="era" value="any" checked> Any</label>
-        <label><input type="radio" name="era" value="classic"> Classic (pre-1950)</label>
-        <label><input type="radio" name="era" value="modern"> Modern (1950–2000)</label>
-        <label><input type="radio" name="era" value="contemporary"> Contemporary (2000+)</label>
-      </fieldset>
+      <label>Publication era
+        <select id="era">
+          <option value="any">Any</option>
+          <option value="classic">Classic (pre-1950)</option>
+          <option value="modern">Modern (1950–2000)</option>
+          <option value="contemporary">Contemporary (2000+)</option>
+        </select>
+      </label>
 
-      <label class="toggle-row">Has cover image
-        <input type="checkbox" id="has-cover">
+      <label>Has cover image
+        <input type="checkbox" id="hasCover" />
       </label>
 
       <label>Minimum editions
-        <select id="min-editions">
-          <option value="0">Any</option>
+        <select id="minEditions">
+          <option value="any">Any</option>
           <option value="2">2+</option>
           <option value="5">5+</option>
           <option value="10">10+</option>
@@ -53,26 +52,25 @@
       </label>
     </aside>
 
-    <main class="main" id="main">
-      <div class="toolbar">
-        <button id="filters-toggle" class="filters-toggle" aria-label="Toggle filters">☰</button>
-        <h1 id="view-title">Search Results</h1>
+    <main>
+      <div class="controls">
+        <button id="openFilters" class="open-filters" aria-label="Open filters">☰</button>
+        <div id="viewTitle" class="view-title">Search</div>
       </div>
-      <section id="results" class="grid"></section>
-      <section id="empty" class="empty" hidden>
-        <p>Your bookshelf is empty. Save books to see them here.</p>
-      </section>
+
+      <section id="results" class="results-grid" aria-live="polite"></section>
     </main>
   </div>
 
-  <div id="modal" class="modal" aria-hidden="true">
-    <div class="modal-overlay" id="modal-overlay"></div>
-    <div class="modal-content" role="dialog" aria-modal="true">
-      <button id="modal-close" class="modal-close">Close</button>
-      <div id="modal-body"></div>
+  <!-- Modal -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal-panel" id="modalPanel">
+      <button id="modalClose" class="modal-close">✕</button>
+      <div id="modalContent"></div>
     </div>
   </div>
 
-  <script src="app.js" type="module"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

@@ -1,207 +1,270 @@
-const API_FIELDS = 'key,title,author_name,cover_i,first_publish_year,edition_count';
-const API_LIMIT = 10;
-const STORAGE_KEY = 'booksgalore_books_v1';
+// Minimal Booksgalore app.js
+(function(){
+  const API_BASE = 'https://openlibrary.org/search.json';
+  const RESULTS_LIMIT = 10;
+  const FIELDS = 'key,title,author_name,cover_i,first_publish_year,edition_count';
 
-const el = (id)=>document.getElementById(id);
+  const searchInput = document.getElementById('searchInput');
+  const resultsEl = document.getElementById('results');
+  const bookshelfBtn = document.getElementById('bookshelfBtn');
+  const viewTitle = document.getElementById('viewTitle');
+  const openFilters = document.getElementById('openFilters');
+  const toggleFilters = document.getElementById('toggleFilters');
+  const filtersPanel = document.getElementById('filters');
 
-let lastFetch = 0;
-let debounceTimer = null;
-let scheduledSearch = null;
+  const sortByEl = document.getElementById('sortBy');
+  const eraEl = document.getElementById('era');
+  const hasCoverEl = document.getElementById('hasCover');
+  const minEditionsEl = document.getElementById('minEditions');
 
-const state = {
-  view: 'search', // or 'bookshelf'
-  results: [],
-  saved: loadSaved(),
-  filters: {
-    sort: 'relevance', era: 'any', hasCover:false, minEditions:0
-  }
-};
+  const modal = document.getElementById('modal');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalClose = document.getElementById('modalClose');
+  const modalContent = document.getElementById('modalContent');
 
-function loadSaved(){
-  try{const j=localStorage.getItem(STORAGE_KEY);return j?JSON.parse(j):{};}catch(e){return{}}}
-function saveSaved(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state.saved));}
+  let currentResults = [];
+  let saved = loadSaved();
+  let inBookshelf = false;
 
-async function doFetch(query){
-  lastFetch = Date.now();
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${API_FIELDS}&limit=${API_LIMIT}`;
-  try{
-    const res = await fetch(url);
-    const json = await res.json();
-    state.results = (json.docs||[]).map(normalize);
-    applyFiltersAndRender();
-  }catch(e){console.error(e);renderResults([])}
-}
-
-// Search with simple scheduling to respect ~1 request/second rate limit.
-function search(query){
-  if(!query) return renderResults([]);
-  const now = Date.now();
-  const remaining = 1000 - (now - lastFetch);
-  if(remaining > 0){
-    if(scheduledSearch) clearTimeout(scheduledSearch);
-    scheduledSearch = setTimeout(()=>{ doFetch(query); scheduledSearch = null; }, remaining);
-    return;
-  }
-  doFetch(query);
-}
-
-function normalize(d){
-  return {
-    id: d.key,
-    title: d.title||'Untitled',
-    authors: d.author_name||[],
-    cover_i: d.cover_i||null,
-    year: d.first_publish_year||null,
-    edition_count: d.edition_count||0,
-  };
-}
-
-function renderResults(list){
-  const container = el('results');container.innerHTML='';
-  if(!list.length){container.innerHTML='<p class="empty">No results</p>';return}
-  list.forEach(book=>{
-    const card = document.createElement('article');card.className='card';
-    const img = document.createElement('img');
-    if(book.cover_i){img.src=`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`;img.alt=book.title}else{
-      img.src='';img.alt='No cover';img.style.background='#FFF3E0';img.style.height='220px';img.style.display='block';img.style.padding='24px';img.style.backgroundImage=`linear-gradient(180deg, #FFF8F2, #F9F3EA)`;img.style.backgroundSize='cover';img.style.textAlign='center';
+  // Debounce and rate limit
+  function debounce(fn, wait){
+    let t;
+    return function(...a){
+      clearTimeout(t);
+      t = setTimeout(()=>fn.apply(this,a), wait);
     }
-    card.appendChild(img);
-    const body = document.createElement('div');body.className='card-body';
-    const h = document.createElement('h3');h.className='title';h.textContent=book.title;
-    const m = document.createElement('div');m.className='meta';m.textContent=(book.authors.join(', ') || 'Unknown') + (book.year?(' • '+book.year):'');
-    body.appendChild(h);body.appendChild(m);
-    card.appendChild(body);
-    const actions = document.createElement('div');actions.className='card-actions';
-    const btn = document.createElement('button');
-    const saved = state.saved[book.id];
-    if(saved){
-      btn.textContent = saved.status === 'read' ? 'Read' : 'Want to Read';
-      btn.className='btn secondary';
-      const badge = document.createElement('span');badge.className=`badge ${saved.status==='read'?'read':'want'}`;badge.textContent = saved.status==='read'?'Read':'Want';actions.appendChild(badge);
-    }else{btn.textContent='Save';btn.className='btn'}
-    btn.addEventListener('click',(ev)=>{ev.stopPropagation();toggleSave(book);renderCurrentView();});
-    actions.appendChild(btn);
-    card.appendChild(actions);
-    card.addEventListener('click',()=>openModal(book));
-    container.appendChild(card);
-  })
-}
-
-function applyFiltersAndRender(){
-  let list = [...state.results];
-  const f=state.filters;
-  if(f.hasCover){list = list.filter(b=>b.cover_i)}
-  if(f.minEditions>0){list = list.filter(b=>b.edition_count>=f.minEditions)}
-  if(f.era!=='any'){
-    list = list.filter(b=>{
-      const y = b.year||0; if(f.era==='classic')return y>0 && y<1950; if(f.era==='modern')return y>=1950 && y<=2000; if(f.era==='contemporary')return y>2000; return true;
-    })
   }
-  if(f.sort==='year-desc') list.sort((a,b)=>(b.year||0)-(a.year||0));
-  if(f.sort==='year-asc') list.sort((a,b)=>(a.year||0)-(b.year||0));
-  renderResults(list);
-}
 
-function toggleSave(book){
-  if(state.saved[book.id]){
-    delete state.saved[book.id];
-  }else{
-    state.saved[book.id]={...book,status:'want',saved_at:Date.now()};
+  async function search(query){
+    if(!query || !query.trim()) return;
+    viewTitle.textContent = `Search: "${query}"`;
+    // show loading
+    resultsEl.innerHTML = '<p>Loading…</p>';
+
+    const q = encodeURIComponent(query);
+    const url = `${API_BASE}?q=${q}&fields=${FIELDS}&limit=${RESULTS_LIMIT}`;
+
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Network error');
+      const data = await res.json();
+      currentResults = (data.docs || []).map(doc=>({
+        key: doc.key,
+        title: doc.title,
+        authors: doc.author_name || [],
+        cover_i: doc.cover_i,
+        year: doc.first_publish_year,
+        edition_count: doc.edition_count || 0
+      }));
+      renderResults(applyFilters(currentResults));
+    }catch(e){
+      resultsEl.innerHTML = `<p class="meta">Error: ${e.message}</p>`;
+    }
   }
-  saveSaved();
-}
 
-function openModal(book){
-  const modal = el('modal'); modal.setAttribute('aria-hidden','false');
-  const body = el('modal-body'); body.innerHTML='';
-  const img = document.createElement('img');img.style.maxWidth='200px';img.style.float='left';img.style.marginRight='12px';
-  if(book.cover_i) img.src=`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`; else img.src='';
-  body.appendChild(img);
-  const h = document.createElement('h2');h.textContent=book.title; body.appendChild(h);
-  const a = document.createElement('div');a.textContent = (book.authors.join(', ')||'Unknown');a.style.color='var(--color-text-muted)'; body.appendChild(a);
-  const meta = document.createElement('p');meta.textContent = `Year: ${book.year||'Unknown'} • Editions: ${book.edition_count||0}`; body.appendChild(meta);
-  const saved = state.saved[book.id];
-  const statusBtn = document.createElement('button');
-  statusBtn.textContent = saved? (saved.status==='read'?'Mark Want to Read':'Mark Read') : 'Save to bookshelf';
-  statusBtn.className='btn';
-  statusBtn.addEventListener('click',()=>{
-    if(!state.saved[book.id]){state.saved[book.id]={...book,status:'want',saved_at:Date.now()};}
-    else{state.saved[book.id].status = state.saved[book.id].status==='read'?'want':'read';}
-    saveSaved(); renderCurrentView(); openModal(book); // refresh modal
+  // Apply client-side filters
+  function applyFilters(list){
+    let out = [...list];
+    // has cover
+    if(hasCoverEl.checked) out = out.filter(b => b.cover_i);
+    // min editions
+    const me = minEditionsEl.value;
+    if(me !== 'any') out = out.filter(b => (b.edition_count || 0) >= parseInt(me,10));
+    // era
+    const era = eraEl.value;
+    if(era === 'classic') out = out.filter(b => b.year && b.year < 1950);
+    if(era === 'modern') out = out.filter(b => b.year && b.year >= 1950 && b.year <= 2000);
+    if(era === 'contemporary') out = out.filter(b => b.year && b.year >= 2001);
+    // sort
+    const sort = sortByEl.value;
+    if(sort === 'year-desc') out.sort((a,b)=>(b.year||0)-(a.year||0));
+    if(sort === 'year-asc') out.sort((a,b)=>(a.year||0)-(b.year||0));
+    return out;
+  }
+
+  function renderResults(list){
+    if(inBookshelf){
+      if(!list.length) resultsEl.innerHTML = '<p>Your bookshelf is empty. Save books to see them here.</p>';
+    }
+    if(!list || list.length === 0){
+      resultsEl.innerHTML = '<p>No results.</p>';
+      return;
+    }
+    resultsEl.innerHTML = '';
+    list.forEach(b => {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const cover = document.createElement('div');
+      cover.className = 'cover';
+      if(b.cover_i){
+        const img = document.createElement('img');
+        img.src = `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg`;
+        img.alt = b.title || 'Cover';
+        cover.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'placeholder-icon';
+        ph.innerHTML = '<svg width="36" height="48" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="14" height="28" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M6 8h8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>';
+        cover.appendChild(ph);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+      const title = document.createElement('h4'); title.className = 'title'; title.textContent = b.title || 'Untitled';
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = `${(b.authors||[]).join(', ') || 'Unknown author'} • ${b.year || '—'}`;
+      body.appendChild(title); body.appendChild(meta);
+
+      const actions = document.createElement('div'); actions.className = 'card-actions';
+      const saveBtn = document.createElement('button'); saveBtn.className = 'btn btn-primary';
+      const savedItem = saved[b.key];
+      if(savedItem){
+        saveBtn.textContent = savedItem.status === 'read' ? 'Read' : 'Want to Read';
+      } else saveBtn.textContent = 'Save';
+
+      saveBtn.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        toggleSave(b);
+        // re-render to update button
+        renderResults(list);
+      });
+
+      actions.appendChild(saveBtn);
+
+      card.appendChild(cover);
+      card.appendChild(body);
+      card.appendChild(actions);
+
+      card.addEventListener('click', ()=>openModal(b));
+
+      resultsEl.appendChild(card);
+    });
+  }
+
+  function openModal(book){
+    modal.classList.remove('hidden');
+    modalContent.innerHTML = '';
+    const cover = document.createElement('div'); cover.style.display='flex'; cover.style.gap='12px';
+    const imgWrap = document.createElement('div'); imgWrap.style.width='160px';
+    if(book.cover_i){
+      const img = document.createElement('img'); img.src = `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`; img.style.width='160px'; img.alt = book.title;
+      imgWrap.appendChild(img);
+    } else {
+      const ph = document.createElement('div'); ph.className='placeholder-icon'; ph.style.width='160px'; ph.style.height='220px'; ph.innerHTML = '<svg width="48" height="64" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="14" height="28" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>';
+      imgWrap.appendChild(ph);
+    }
+
+    const info = document.createElement('div');
+    const h = document.createElement('h2'); h.textContent = book.title; h.style.fontFamily='var(--font-heading)';
+    const a = document.createElement('div'); a.className='meta'; a.textContent = `${(book.authors||[]).join(', ') || 'Unknown author'}`;
+    const y = document.createElement('div'); y.className='meta'; y.textContent = `First published: ${book.year || '—'}`;
+    const e = document.createElement('div'); e.className='meta'; e.textContent = `Edition count: ${book.edition_count || 0}`;
+
+    const saveBtn = document.createElement('button'); saveBtn.className='btn btn-primary';
+    const savedItem = saved[book.key];
+    if(savedItem){
+      saveBtn.textContent = savedItem.status === 'read' ? 'Mark Want to Read' : 'Mark Read';
+    } else saveBtn.textContent = 'Save to Bookshelf';
+
+    saveBtn.addEventListener('click', ()=>{
+      if(saved[book.key]){
+        // toggle status
+        saved[book.key].status = saved[book.key].status === 'read' ? 'want' : 'read';
+      } else {
+        saved[book.key] = { ...book, status: 'want' };
+      }
+      persistSaved();
+      renderResults(applyFilters(inBookshelf ? Object.values(saved) : currentResults));
+      openModal(book);
+    });
+
+    const removeBtn = document.createElement('button'); removeBtn.className='btn btn-secondary'; removeBtn.textContent='Remove';
+    removeBtn.addEventListener('click', ()=>{
+      delete saved[book.key]; persistSaved(); renderResults(applyFilters(inBookshelf ? Object.values(saved) : currentResults)); closeModal();
+    });
+
+    info.appendChild(h); info.appendChild(a); info.appendChild(y); info.appendChild(e); info.appendChild(saveBtn); info.appendChild(removeBtn);
+    cover.appendChild(imgWrap); cover.appendChild(info);
+    modalContent.appendChild(cover);
+  }
+
+  function closeModal(){ modal.classList.add('hidden'); }
+
+  modalOverlay.addEventListener('click', closeModal);
+  modalClose.addEventListener('click', closeModal);
+
+  function toggleSave(book){
+    if(saved[book.key]){
+      // toggle between want/read
+      saved[book.key].status = saved[book.key].status === 'read' ? 'want' : 'read';
+    } else {
+      saved[book.key] = {...book, status:'want'};
+    }
+    persistSaved();
+  }
+
+  function persistSaved(){
+    try{localStorage.setItem('booksgalore_saved', JSON.stringify(saved));}catch(e){console.warn('Could not persist saved',e)}
+  }
+
+  function loadSaved(){
+    try{const v = localStorage.getItem('booksgalore_saved'); return v ? JSON.parse(v) : {}; }catch(e){return {}}
+  }
+
+  // View toggles
+  bookshelfBtn.addEventListener('click', ()=>{
+    inBookshelf = !inBookshelf;
+    if(inBookshelf){
+      viewTitle.textContent = 'Your Bookshelf';
+      renderResults(Object.values(saved));
+    } else {
+      viewTitle.textContent = 'Search';
+      renderResults(applyFilters(currentResults));
+    }
   });
-  body.appendChild(statusBtn);
-}
 
-function closeModal(){const modal=el('modal');modal.setAttribute('aria-hidden','true')}
+  openFilters.addEventListener('click', ()=>filtersPanel.classList.add('open'));
+  toggleFilters.addEventListener('click', ()=>filtersPanel.classList.remove('open'));
 
-function renderBookshelf(){
-  const books = Object.values(state.saved);
-  el('view-title').textContent='Your Bookshelf';
-  el('results').innerHTML='';
-  if(!books.length){el('empty').hidden=false;return}
-  el('empty').hidden=true;
-  books.forEach(b=>{
-    const card = document.createElement('article');card.className='card';
-    const img = document.createElement('img');if(b.cover_i) img.src=`https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg`; else img.src='';card.appendChild(img);
-    const body = document.createElement('div');body.className='card-body';
-    const h = document.createElement('h3');h.className='title';h.textContent=b.title;body.appendChild(h);
-    const m = document.createElement('div');m.className='meta';m.textContent=(b.authors.join(', ') || 'Unknown') + (b.year?(' • '+b.year):'');body.appendChild(m);
-    card.appendChild(body);
-    const actions = document.createElement('div');actions.className='card-actions';
-    const badge = document.createElement('span');badge.className=`badge ${b.status==='read'?'read':'want'}`;badge.textContent = b.status==='read'?'Read':'Want';actions.appendChild(badge);
-    const toggle = document.createElement('button');toggle.className='btn secondary';toggle.textContent='Toggle';toggle.addEventListener('click',()=>{state.saved[b.id].status = state.saved[b.id].status==='read'?'want':'read';saveSaved();renderBookshelf();});actions.appendChild(toggle);
-    const remove = document.createElement('button');remove.className='btn';remove.textContent='Remove';remove.addEventListener('click',()=>{delete state.saved[b.id];saveSaved();renderBookshelf();});actions.appendChild(remove);
-    card.appendChild(actions);
-    el('results').appendChild(card);
-  })
-}
+  // Filters change
+  [sortByEl, eraEl, hasCoverEl, minEditionsEl].forEach(el=>el.addEventListener('change', ()=>{
+    renderResults(applyFilters(inBookshelf ? Object.values(saved) : currentResults));
+  }));
 
-function renderCurrentView(){
-  if(state.view==='bookshelf'){renderBookshelf()}else{el('view-title').textContent='Search Results';applyFiltersAndRender();}
-}
+  // Debounced search on input
+  const debounced = debounce((e)=>{
+    const q = e.target.value;
+    if(!q) return;
+    // respect simple rate: wait 1000ms between calls
+    search(q);
+  }, 800);
 
-// UI wiring
-document.addEventListener('click',e=>{
-  if(e.target.id==='filters-toggle'){
-    document.querySelector('.filters').classList.toggle('show');
-  }
-});
+  searchInput.addEventListener('input', (e)=>{
+    // expand when typing
+    if(searchInput.classList.contains('collapsed')){
+      searchInput.classList.remove('collapsed');
+      searchInput.style.width = '320px';
+    }
+    debounced(e);
+  });
 
-el('search-spine').addEventListener('click',()=>{document.querySelector('.search-wrap').classList.add('expanded');el('search-input').focus();});
-el('search-input').addEventListener('blur',()=>{if(!el('search-input').value)document.querySelector('.search-wrap').classList.remove('expanded');});
+  // Submit on enter
+  searchInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      search(searchInput.value);
+    }
+  });
 
-el('search-input').addEventListener('input',(e)=>{
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(()=>{search(e.target.value.trim())},700);
-});
+  // initial focus behavior: clicking outside collapses
+  document.addEventListener('click', (e)=>{
+    if(!searchInput.contains(e.target) && searchInput.value.trim() === ''){
+      searchInput.classList.add('collapsed');
+      searchInput.style.width='';
+    }
+  });
 
-el('bookshelf-btn').addEventListener('click',()=>{state.view = state.view==='bookshelf'?'search':'bookshelf'; renderCurrentView();});
-el('filters-close').addEventListener('click',()=>document.querySelector('.filters').classList.remove('show'));
+  // expose simple global for debugging
+  window.booksgalore = {search, saved};
 
-Array.from(document.querySelectorAll('input[name="era"]')).forEach(r=>r.addEventListener('change',(e)=>{state.filters.era=e.target.value;applyFiltersAndRender()}));
-el('sort-select').addEventListener('change',(e)=>{state.filters.sort=e.target.value;applyFiltersAndRender()});
-el('has-cover').addEventListener('change',(e)=>{state.filters.hasCover=e.target.checked;applyFiltersAndRender()});
-el('min-editions').addEventListener('change',(e)=>{state.filters.minEditions=Number(e.target.value);applyFiltersAndRender()});
-
-el('modal-overlay').addEventListener('click',closeModal);el('modal-close').addEventListener('click',closeModal);
-
-// initial
-renderCurrentView();
-
-// Allow typing anywhere to focus the search input so users can start typing book names immediately.
-document.addEventListener('keydown',(e)=>{
-  const inp = el('search-input');
-  if(!inp) return;
-  const active = document.activeElement;
-  if(active === inp) return; // already focused
-  if(e.metaKey || e.ctrlKey || e.altKey) return;
-  const k = e.key;
-  if(k.length === 1 && /\S/.test(k)){
-    document.querySelector('.search-wrap').classList.add('expanded');
-    inp.focus();
-    // append typed character
-    inp.value = (inp.value || '') + k;
-    inp.dispatchEvent(new Event('input', {bubbles:true}));
-    e.preventDefault();
-  }
-});
+})();

@@ -12,7 +12,7 @@ Booksgalore is a warm, cosy web app that lets anyone search for books or authors
 
 ## ✨ Features
 
-- **Search** for any book title or author via the OpenLibrary API
+- **Search by title** — type a book title into the search bar to find matching results; author name search is also supported
 
 - **Browse results** in a card grid with cover images, titles, authors, and publish years
 
@@ -122,4 +122,3 @@ https://covers.openlibrary.org/b/id/{cover_i}-M.jpg
 ## 📄 Licence
 
 This project is open for personal and educational use. Please credit **WolfySaurian Studios** if you build on it.
-# booksgalore-redone
