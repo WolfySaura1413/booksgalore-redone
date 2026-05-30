@@ -6,6 +6,7 @@ const el = (id)=>document.getElementById(id);
 
 let lastFetch = 0;
 let debounceTimer = null;
+let scheduledSearch = null;
 
 const state = {
   view: 'search', // or 'bookshelf'
@@ -20,13 +21,8 @@ function loadSaved(){
   try{const j=localStorage.getItem(STORAGE_KEY);return j?JSON.parse(j):{};}catch(e){return{}}}
 function saveSaved(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state.saved));}
 
-async function search(query){
-  if(!query) return renderResults([]);
-  const now = Date.now();
-  if(now - lastFetch < 1000){ // enforce ~1req/sec
-    return;
-  }
-  lastFetch = now;
+async function doFetch(query){
+  lastFetch = Date.now();
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${API_FIELDS}&limit=${API_LIMIT}`;
   try{
     const res = await fetch(url);
@@ -34,6 +30,19 @@ async function search(query){
     state.results = (json.docs||[]).map(normalize);
     applyFiltersAndRender();
   }catch(e){console.error(e);renderResults([])}
+}
+
+// Search with simple scheduling to respect ~1 request/second rate limit.
+function search(query){
+  if(!query) return renderResults([]);
+  const now = Date.now();
+  const remaining = 1000 - (now - lastFetch);
+  if(remaining > 0){
+    if(scheduledSearch) clearTimeout(scheduledSearch);
+    scheduledSearch = setTimeout(()=>{ doFetch(query); scheduledSearch = null; }, remaining);
+    return;
+  }
+  doFetch(query);
 }
 
 function normalize(d){
@@ -178,3 +187,21 @@ el('modal-overlay').addEventListener('click',closeModal);el('modal-close').addEv
 
 // initial
 renderCurrentView();
+
+// Allow typing anywhere to focus the search input so users can start typing book names immediately.
+document.addEventListener('keydown',(e)=>{
+  const inp = el('search-input');
+  if(!inp) return;
+  const active = document.activeElement;
+  if(active === inp) return; // already focused
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if(k.length === 1 && /\S/.test(k)){
+    document.querySelector('.search-wrap').classList.add('expanded');
+    inp.focus();
+    // append typed character
+    inp.value = (inp.value || '') + k;
+    inp.dispatchEvent(new Event('input', {bubbles:true}));
+    e.preventDefault();
+  }
+});
