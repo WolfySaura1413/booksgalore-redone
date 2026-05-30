@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Booksgalore — Treat your shelf!</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="bookshelf-btn" aria-label="Your Bookshelf">Your Bookshelf</button>
+    <div class="search-wrap" id="search-wrap">
+      <div class="search-spine" id="search-spine" tabindex="0">
+        <span class="spine-text">Search</span>
+      </div>
+      <input id="search-input" class="search-input" placeholder="Search books or authors" aria-label="Search books or authors">
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="filters" id="filters">
+      <button id="filters-close" class="filters-close">×</button>
+      <h3>Filter</h3>
+      <label>Sort by
+        <select id="sort-select">
+          <option value="relevance">Relevance</option>
+          <option value="year-desc">Year (Newest)</option>
+          <option value="year-asc">Year (Oldest)</option>
+        </select>
+      </label>
+
+      <fieldset>
+        <legend>Publication era</legend>
+        <label><input type="radio" name="era" value="any" checked> Any</label>
+        <label><input type="radio" name="era" value="classic"> Classic (pre-1950)</label>
+        <label><input type="radio" name="era" value="modern"> Modern (1950–2000)</label>
+        <label><input type="radio" name="era" value="contemporary"> Contemporary (2000+)</label>
+      </fieldset>
+
+      <label class="toggle-row">Has cover image
+        <input type="checkbox" id="has-cover">
+      </label>
+
+      <label>Minimum editions
+        <select id="min-editions">
+          <option value="0">Any</option>
+          <option value="2">2+</option>
+          <option value="5">5+</option>
+          <option value="10">10+</option>
+        </select>
+      </label>
+    </aside>
+
+    <main class="main" id="main">
+      <div class="toolbar">
+        <button id="filters-toggle" class="filters-toggle" aria-label="Toggle filters">☰</button>
+        <h1 id="view-title">Search Results</h1>
+      </div>
+      <section id="results" class="grid"></section>
+      <section id="empty" class="empty" hidden>
+        <p>Your bookshelf is empty. Save books to see them here.</p>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-content" role="dialog" aria-modal="true">
+      <button id="modal-close" class="modal-close">Close</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
